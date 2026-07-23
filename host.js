@@ -5,6 +5,7 @@ let state = {
   game: null,
   pollTimer: null,
   tickTimer: null,
+  actInFlight: false,
   error: null
 };
 
@@ -33,11 +34,13 @@ function renderCreateScreen() {
   app.innerHTML = `
     <div class="card">
       <h2>Yeni otaq yarat</h2>
-      <p>İştirakçı sayını seçin (adətən 4–6 nəfər/qrup).</p>
+      <p>İştirakçı sayını seçin (6–15 nəfər/qrup dəstəklənir).</p>
       <select id="maxP" class="field">
-        <option value="4">4 iştirakçı</option>
-        <option value="5">5 iştirakçı</option>
-        <option value="6" selected>6 iştirakçı</option>
+        <option value="6">6 iştirakçı</option>
+        <option value="8">8 iştirakçı</option>
+        <option value="10" selected>10 iştirakçı</option>
+        <option value="12">12 iştirakçı</option>
+        <option value="15">15 iştirakçı</option>
       </select>
       <input class="field" id="pinField" placeholder="Admin PIN (istəyə bağlı, otağı qorumaq üçün)" maxlength="8"/>
       <p class="muted" style="margin-top:-8px">PIN qoysanız, yalnız onu bilən şəxs auksionu idarə edə bilər. Boş buraxsanız qorunma olmayacaq.</p>
@@ -162,7 +165,7 @@ function renderParticipantsTable(g) {
     </tr>`;
   }).join('');
   return `<table>
-    <tr><th>Ad</th><th>Qalan büdcə</th><th>Aldığı lot</th></tr>
+    <tr><th>Nömrə</th><th>Qalan büdcə</th><th>Aldığı lot</th></tr>
     ${rows}
   </table>`;
 }
@@ -196,7 +199,10 @@ function renderResultsScreen(g) {
 }
 
 async function act(payload) {
+  if (state.actInFlight) return;
+  state.actInFlight = true;
   const res = await apiPost({ ...payload, hostPassword: state.hostPassword });
+  state.actInFlight = false;
   if (res.error) { alert(res.error); return; }
   state.game = res.game;
   render();
@@ -205,10 +211,10 @@ async function act(payload) {
 function startPolling() {
   if (state.pollTimer) clearInterval(state.pollTimer);
   state.pollTimer = setInterval(async () => {
-    if (!state.code) return;
+    if (!state.code || state.actInFlight) return;
     const res = await apiGet({ action: 'state', code: state.code });
     if (res.game) { state.game = res.game; render(); }
-  }, 2000);
+  }, 1500);
 }
 
 // Lokal saniyə göstəricisi — pollinqi gözləmədən vaxtı canlı göstərmək üçün

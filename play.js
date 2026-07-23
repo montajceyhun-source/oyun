@@ -7,6 +7,7 @@ let state = {
   pollTimer: null,
   tickTimer: null,
   prevLeaderId: undefined, // undefined = hələ bilinmir (ilk yükləmədə səs çalınmasın)
+  bidInFlight: false,
   error: null
 };
 
@@ -31,17 +32,16 @@ function renderJoinScreen(forceMsg) {
   app.innerHTML = `
     <div class="card">
       <h2>Otağa qoşul</h2>
+      <p class="muted">Ad lazım deyil — qoşulanda sizə avtomatik nömrə veriləcək.</p>
       <input class="field" id="codeField" placeholder="Otaq kodu (4 rəqəm)" value="${state.code || ''}" maxlength="4" inputmode="numeric"/>
-      <input class="field" id="nameField" placeholder="Adınız" maxlength="24"/>
       <button class="btn btn-gold" id="joinBtn" style="width:100%">Qoşul</button>
       ${(forceMsg || state.error) ? `<div class="error-box" style="margin-top:12px">${forceMsg || state.error}</div>` : ''}
     </div>`;
   document.getElementById('joinBtn').onclick = async () => {
     const code = document.getElementById('codeField').value.trim();
-    const name = document.getElementById('nameField').value.trim();
-    if (!code || !name) { state.error = 'Kod və ad daxil edin'; render(); return; }
+    if (!code) { state.error = 'Otaq kodunu daxil edin'; render(); return; }
     document.getElementById('joinBtn').disabled = true;
-    const res = await apiPost({ action: 'joinGame', code, name });
+    const res = await apiPost({ action: 'joinGame', code });
     if (res.error) { state.error = res.error; render(); return; }
     state.code = code;
     state.participantId = res.participantId;
@@ -52,6 +52,7 @@ function renderJoinScreen(forceMsg) {
     startPolling();
     render();
   };
+  document.getElementById('codeField').onkeydown = (ev) => { if (ev.key === 'Enter') document.getElementById('joinBtn').click(); };
 }
 
 function renderWaiting(g, me) {
@@ -64,8 +65,8 @@ function renderWaiting(g, me) {
         : `<h2>Auksion tezliklə başlayacaq</h2><p>Aparıcı ilk lotu elan edəndə burda görünəcək. Hazır olun!</p>`}
     </div>
     <div class="card">
-      <h2>İştirakçılar</h2>
-      <table><tr><th>Ad</th><th>Büdcə</th></tr>
+      <h2>İştirakçılar (${g.participants.length}/${g.maxParticipants})</h2>
+      <table><tr><th>Nömrə</th><th>Büdcə</th></tr>
       ${g.participants.map(p => `<tr><td>${p.name}${p.id===me.id?' <span class="badge you">siz</span>':''}</td><td>${fmtMoney(p.budget)}</td></tr>`).join('')}
       </table>
     </div>`;
@@ -89,7 +90,7 @@ function renderActiveLot(g, me) {
       <div class="ticker">
         <div class="label">Hazırkı qiymət &middot; <span id="timerText" class="timer">--</span></div>
         <div class="amount">${fmtMoney(g.currentPrice)}</div>
-        <div class="label">${leader ? (isLeader ? 'Siz liderisiniz! 🏆' : leader.name + ' öndədir') : 'Hələ təklif yoxdur — ilk siz olun'}</div>
+        <div class="label" id="leaderText">${leader ? (isLeader ? 'Siz liderisiniz! 🏆' : leader.name + ' öndədir') : 'Hələ təklif yoxdur — ilk siz olun'}</div>
       </div>
 
       <div class="btn-row" style="margin-top:16px">
@@ -118,7 +119,7 @@ function renderWalletCard(me) {
   const pct = Math.max(0, Math.round((me.budget / 1000) * 100));
   return `
     <div class="card">
-      <div class="muted">SİZİN BÜDCƏNİZ — ${me.name}</div>
+      <div class="muted">SİZİN NÖMRƏNİZ — ${me.name}</div>
       <div class="ticker" style="margin-top:8px">
         <div class="amount" style="font-size:32px">${fmtMoney(me.budget)}</div>
         <div class="wallet-bar"><div class="wallet-fill" style="width:${pct}%"></div></div>
@@ -152,19 +153,46 @@ function renderResultsScreen(g, me) {
     </div>`;
 }
 
+// ---- Optimistic bidding: dərhal ekranda göstər, sonra serverlə təsdiqlə ----
 async function bid(amount) {
+  if (state.bidInFlight) return; // ard-arda basmanın qarşısını al
+  const g = state.game;
+  const me = g.participants.find(p => p.id === state.participantId);
+  if (!me || amount > me.budget) return;
+
+  state.bidInFlight = true;
+  disableBidControls(true);
+
+  // Optimist görüntü: server cavabı gəlməmiş qiyməti/lideri yenilə
+  const snapshot = JSON.parse(JSON.stringify(g));
+  g.currentPrice = amount;
+  g.currentLeaderId = state.participantId;
+  render();
+  playBidSound();
+
   const res = await apiPost({ action: 'placeBid', code: state.code, participantId: state.participantId, amount });
-  if (res.error) { alert(res.error); return; }
+  state.bidInFlight = false;
+
+  if (res.error) {
+    state.game = snapshot; // uğursuz oldu — geri qaytar
+    alert(res.error);
+    render();
+    return;
+  }
   state.game = res.game;
   state.prevLeaderId = res.game.currentLeaderId;
-  if (res.game.currentLeaderId === state.participantId) playLeaderSound(); else playBidSound();
+  if (res.game.currentLeaderId === state.participantId) playLeaderSound();
   render();
+}
+
+function disableBidControls(disabled) {
+  document.querySelectorAll('[data-amt], #customBtn').forEach(el => { el.disabled = disabled || el.disabled; });
 }
 
 function startPolling() {
   if (state.pollTimer) clearInterval(state.pollTimer);
   state.pollTimer = setInterval(async () => {
-    if (!state.code) return;
+    if (!state.code || state.bidInFlight) return; // öz təklifimiz gedərkən poll ilə üst-üstə düşməsin
     const res = await apiGet({ action: 'state', code: state.code });
     if (!res.game) return;
 
@@ -176,7 +204,7 @@ function startPolling() {
     state.prevLeaderId = res.game.currentLeaderId;
     state.game = res.game;
     render();
-  }, 1500);
+  }, 1000);
 }
 
 // Lokal saniyə göstəricisi

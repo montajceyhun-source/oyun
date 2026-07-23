@@ -11,18 +11,18 @@
  * 2) "Yayımla" > "Yeni yayım" > Tip: "Veb tətbiq"
  *      - İcra edən: Mən (siz)
  *      - Girişi olanlar: Hər kəs (Anyone)
- * 3) Alınan URL-i frontend-dəki js/api.js faylında APPS_SCRIPT_URL
+ * 3) Alınan URL-i frontend-dəki api.js faylında APPS_SCRIPT_URL
  *    dəyişəninə yapışdırın.
  * 4) (İstəyə bağlı) Nəticələrin daimi qeydi üçün aşağıdakı SHEET_ID
  *    sahəsinə öz Google Sheet ID-nizi yazın. Boş saxlasanız, sadəcə
  *    o funksiya keçilir, oyun yenə də işləyir.
  */
 
-const SHEET_ID = ''; // İstəyə bağlı: nəticələri yazmaq üçün Google Sheet ID-si
+const SHEET_ID = '1A77EPRfXTjXatUDtgx0EMOeWXb_seryBO1rsvnIAPW0'; // İstəyə bağlı: nəticələri yazmaq üçün Google Sheet ID-si
 
 const START_BUDGET = 1000;
 const BID_STEP_MIN = 10;
-const LOT_DURATION_MS = 25000;      // hər lot üçün vaxt limiti
+const LOT_DURATION_MS = 40000;      // hər lot üçün vaxt limiti (40 saniyə)
 const ANTI_SNIPE_WINDOW_MS = 5000;  // son N saniyədə təklif gəlsə...
 const ANTI_SNIPE_EXTEND_MS = 8000;  // ...vaxtı bu qədərə uzat
 
@@ -124,13 +124,22 @@ function generateCode() {
   return code;
 }
 
+// İştirakçı ad girmir — hər kəsə avtomatik unikal random nömrə verilir
+function generateParticipantName(game) {
+  let name;
+  do {
+    name = 'İştirakçı-' + Math.floor(1000 + Math.random() * 9000);
+  } while (game.participants.some(p => p.name === name));
+  return name;
+}
+
 function createGame(body) {
   const code = generateCode();
   const game = {
     code: code,
     hostPassword: (body.hostPassword || '').trim() || null,
     status: 'lobby', // lobby -> active -> (lobby again between lots) -> finished
-    maxParticipants: body.maxParticipants || 6,
+    maxParticipants: body.maxParticipants || 10,
     participants: [],
     lots: JSON.parse(JSON.stringify(LOTS)),
     currentLotIndex: -1,
@@ -150,14 +159,9 @@ function joinGame(body) {
   if (game.participants.length >= game.maxParticipants) {
     return { error: 'Otaq doludur (maksimum ' + game.maxParticipants + ' iştirakçı)' };
   }
-  const name = (body.name || '').trim();
-  if (!name) return { error: 'Ad daxil edin' };
-  if (game.participants.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-    return { error: 'Bu adla artıq biri qoşulub, başqa ad seçin' };
-  }
   const participant = {
     id: Utilities.getUuid(),
-    name: name,
+    name: generateParticipantName(game),
     budget: START_BUDGET,
     purchases: []
   };
