@@ -4,10 +4,29 @@ let state = {
   hostPassword: sessionStorage.getItem('host_pin') || '',
   game: null,
   pollTimer: null,
-  tickTimer: null,
   actInFlight: false,
   error: null
 };
+
+// ---------------- Aparıcının otaq siyahısı (bu brauzerdə yaratdığı bütün otaqlar) ----------------
+// localStorage istifadə olunur (sessionStorage yox), ona görə fərqli tab/pəncərələrdən də görünür
+// və eyni anda bir neçə otağı paralel idarə etmək mümkündür.
+const ROOMS_KEY = 'auksion_host_rooms';
+
+function getRooms() {
+  try { return JSON.parse(localStorage.getItem(ROOMS_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveRooms(rooms) {
+  localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms));
+}
+function addRoom(code, hostPassword) {
+  const rooms = getRooms().filter(r => r.code !== code);
+  rooms.unshift({ code, hostPassword, createdAt: Date.now() });
+  saveRooms(rooms);
+}
+function removeRoom(code) {
+  saveRooms(getRooms().filter(r => r.code !== code));
+}
 
 function render() {
   if (!isConfigured()) {
@@ -30,11 +49,31 @@ function render() {
   renderGameScreen(g);
 }
 
+function renderRoomsList() {
+  const rooms = getRooms();
+  if (!rooms.length) return '';
+  const rows = rooms.map(r => `
+    <div class="row" style="align-items:center; margin-bottom:10px">
+      <div class="col" style="min-width:0">
+        <strong style="font-family: var(--font-mono)">${r.code}</strong>
+        ${r.hostPassword ? '<span class="badge" style="margin-left:6px">PIN qoyulub</span>' : ''}
+      </div>
+      <button class="btn" data-open-room="${r.code}" data-pin="${r.hostPassword || ''}">Aç</button>
+      <button class="btn btn-danger" data-delete-room="${r.code}" data-pin="${r.hostPassword || ''}">Sil</button>
+    </div>`).join('');
+  return `
+    <div class="card">
+      <h2>Mövcud otaqlarınız</h2>
+      ${rows}
+    </div>`;
+}
+
 function renderCreateScreen() {
   app.innerHTML = `
+    ${renderRoomsList()}
     <div class="card">
       <h2>Yeni otaq yarat</h2>
-      <p>İştirakçı sayını seçin (6–15 nəfər/qrup dəstəklənir).</p>
+      <p>İştirakçı sayını seçin (6–15 nəfər/qrup dəstəklənir). İstəsəniz eyni anda bir neçə otaq paralel aça bilərsiniz.</p>
       <select id="maxP" class="field">
         <option value="6">6 iştirakçı</option>
         <option value="8">8 iştirakçı</option>
@@ -54,14 +93,45 @@ function renderCreateScreen() {
     document.getElementById('createBtn').disabled = true;
     const res = await apiPost({ action: 'createGame', maxParticipants, hostPassword });
     if (res.error) { state.error = res.error; render(); return; }
-    state.code = res.game.code;
-    state.hostPassword = hostPassword;
+    openRoom(res.game.code, hostPassword);
+    addRoom(res.game.code, hostPassword);
     state.game = res.game;
-    sessionStorage.setItem('host_code', state.code);
-    sessionStorage.setItem('host_pin', hostPassword);
-    startPolling();
     render();
   };
+
+  app.querySelectorAll('[data-open-room]').forEach(btn => {
+    btn.onclick = () => openRoom(btn.dataset.openRoom, btn.dataset.pin);
+  });
+  app.querySelectorAll('[data-delete-room]').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('Bu otaq tamamilə silinəcək (bərpa olunmayacaq). Əminsiniz?')) return;
+      const code = btn.dataset.deleteRoom;
+      const hostPassword = btn.dataset.pin;
+      const res = await apiPost({ action: 'deleteGame', code, hostPassword });
+      if (res.error) { alert(res.error); return; }
+      removeRoom(code);
+      render();
+    };
+  });
+}
+
+function openRoom(code, hostPassword) {
+  state.code = code;
+  state.hostPassword = hostPassword || '';
+  state.error = null;
+  sessionStorage.setItem('host_code', state.code);
+  sessionStorage.setItem('host_pin', state.hostPassword);
+  startPolling();
+  render();
+}
+
+function closeRoomView() {
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.code = null;
+  state.game = null;
+  sessionStorage.removeItem('host_code');
+  sessionStorage.removeItem('host_pin');
+  render();
 }
 
 function renderGameScreen(g) {
@@ -103,6 +173,7 @@ function renderGameScreen(g) {
 
   app.innerHTML = `
     <div class="card center">
+      <button class="btn" id="backToRoomsBtn" style="margin-bottom:14px">← Otaqlar siyahısına qayıt</button>
       <div class="muted">OTAQ KODU</div>
       <div class="code-display">${g.code}</div>
       <div class="muted" style="margin-top:6px">Qoşulma linki:</div>
@@ -120,10 +191,14 @@ function renderGameScreen(g) {
     </div>
 
     <div class="card center">
-      <button class="btn btn-danger" id="resetBtn">↺ Oyunu sıfırla</button>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-danger" id="resetBtn">↺ Oyunu sıfırla</button>
+        <button class="btn btn-danger" id="deleteBtn">🗑 Otağı ləğv et</button>
+      </div>
     </div>
   `;
 
+  document.getElementById('backToRoomsBtn').onclick = () => closeRoomView();
   document.getElementById('copyBtn').onclick = () => {
     navigator.clipboard.writeText(joinLink);
     document.getElementById('copyBtn').textContent = 'Kopyalandı ✓';
@@ -139,6 +214,13 @@ function renderGameScreen(g) {
   if (finishBtn) finishBtn.onclick = () => act({ action: 'finishGame', code: g.code });
   document.getElementById('resetBtn').onclick = () => {
     if (confirm('Bütün irəliləyiş silinəcək. Əminsiniz?')) act({ action: 'resetGame', code: g.code });
+  };
+  document.getElementById('deleteBtn').onclick = async () => {
+    if (!confirm('Bu otaq tamamilə silinəcək (bərpa olunmayacaq). Əminsiniz?')) return;
+    const res = await apiPost({ action: 'deleteGame', code: g.code, hostPassword: state.hostPassword });
+    if (res.error) { alert(res.error); return; }
+    removeRoom(g.code);
+    closeRoomView();
   };
 }
 
@@ -184,16 +266,28 @@ function renderResultsScreen(g) {
 
   app.innerHTML = `
     <div class="card center">
+      <button class="btn" id="backToRoomsBtn2" style="margin-bottom:14px">← Otaqlar siyahısına qayıt</button>
       <span class="eyebrow">Yekun</span>
       <h2>Auksion bitdi</h2>
       <p>Aşağıda hər iştirakçının aldığı xüsusiyyətlər, qalan büdcəsi və xərcləmə profili var. Müzakirəyə başlaya bilərsiniz.</p>
     </div>
     ${rows}
     <div class="card center">
-      <button class="btn btn-gold" id="resetBtn2">↺ Yeni oyun üçün sıfırla</button>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-gold" id="resetBtn2">↺ Yeni oyun üçün sıfırla</button>
+        <button class="btn btn-danger" id="deleteBtn2">🗑 Otağı ləğv et</button>
+      </div>
     </div>
   `;
+  document.getElementById('backToRoomsBtn2').onclick = () => closeRoomView();
   document.getElementById('resetBtn2').onclick = () => act({ action: 'resetGame', code: g.code });
+  document.getElementById('deleteBtn2').onclick = async () => {
+    if (!confirm('Bu otaq tamamilə silinəcək (bərpa olunmayacaq). Əminsiniz?')) return;
+    const res = await apiPost({ action: 'deleteGame', code: g.code, hostPassword: state.hostPassword });
+    if (res.error) { alert(res.error); return; }
+    removeRoom(g.code);
+    closeRoomView();
+  };
 }
 
 async function act(payload) {
@@ -218,7 +312,7 @@ function startPolling() {
 (async function init() {
   if (isConfigured() && state.code) {
     const res = await apiGet({ action: 'state', code: state.code });
-    if (res.game) { state.game = res.game; startPolling(); }
+    if (res.game) { state.game = res.game; addRoom(state.code, state.hostPassword); startPolling(); }
     else { state.code = null; sessionStorage.removeItem('host_code'); }
   }
   render();
