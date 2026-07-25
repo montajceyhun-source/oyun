@@ -1,0 +1,276 @@
+/* ============================================================
+   SEVGİ BÜDCƏSİ AUKSIONU — Dizayn tokenləri
+   Palette: gecə şərabı fonu + köhnə əskinas qızılısı + auksion evi tipoqrafiyası
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+:root {
+  --bg: #23111a;
+  --bg-deep: #180a10;
+  --panel: #2f1723;
+  --panel-2: #3a1d2b;
+  --line: rgba(233, 202, 150, 0.18);
+  --gold: #c9a15a;
+  --gold-bright: #e8c887;
+  --ivory: #f3e8d8;
+  --ivory-dim: rgba(243, 232, 216, 0.62);
+  --rose: #c15264;
+  --money: #5c9a72;
+  --money-bright: #7fc496;
+  --danger: #c4574f;
+
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(1200px 800px at 50% -10%, #3a1c28 0%, var(--bg) 45%, var(--bg-deep) 100%);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+body {
+  background-attachment: fixed;
+}
+
+/* Faint recurring banknote-guilloché texture in the background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: repeating-linear-gradient(45deg, var(--gold) 0, var(--gold) 1px, transparent 1px, transparent 26px),
+                     repeating-linear-gradient(-45deg, var(--gold) 0, var(--gold) 1px, transparent 1px, transparent 26px);
+  z-index: 0;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+a { color: inherit; }
+
+h1, h2, h3 { font-family: var(--font-display); margin: 0 0 6px; line-height: 1.15; }
+h1 { font-size: clamp(28px, 5vw, 42px); font-weight: 900; }
+h2 { font-size: clamp(20px, 3.4vw, 26px); font-weight: 700; }
+p { line-height: 1.55; color: var(--ivory-dim); margin: 0 0 14px; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.hero {
+  text-align: center;
+  padding: 40px 0 28px;
+}
+
+.card {
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 26px;
+  margin-bottom: 20px;
+  box-shadow: 0 20px 40px -20px rgba(0,0,0,0.5);
+}
+
+.btn {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid var(--line);
+  background: rgba(243,232,216,0.06);
+  color: var(--ivory);
+  padding: 13px 22px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn:hover { background: rgba(243,232,216,0.12); border-color: var(--gold); }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-gold {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #2a1810;
+  border: none;
+  font-weight: 700;
+}
+.btn-gold:hover { filter: brightness(1.06); background: linear-gradient(180deg, var(--gold-bright), var(--gold)); }
+
+.btn-rose { background: linear-gradient(180deg, #d5697b, var(--rose)); color: #fff; border: none; font-weight: 700; }
+.btn-danger { background: transparent; border: 1px solid var(--danger); color: #f0b3ae; }
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.field {
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,0.2);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.field:focus { outline: none; border-color: var(--gold); }
+
+.center { text-align: center; }
+.muted { color: var(--ivory-dim); font-size: 13px; }
+.row { display: flex; gap: 14px; flex-wrap: wrap; }
+.col { flex: 1; min-width: 220px; }
+
+/* ---- Signature element: the banknote price ticker ---- */
+.ticker {
+  position: relative;
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(201,161,90,0.14), rgba(201,161,90,0.04));
+  padding: 18px 22px;
+  text-align: center;
+  overflow: hidden;
+}
+.ticker::before, .ticker::after {
+  content: '₼';
+  position: absolute;
+  font-family: var(--font-display);
+  font-size: 90px;
+  color: rgba(201,161,90,0.08);
+  top: -20px;
+}
+.ticker::before { left: -10px; }
+.ticker::after { right: -10px; }
+.ticker .amount {
+  font-family: var(--font-mono);
+  font-size: clamp(38px, 8vw, 58px);
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.02em;
+}
+.ticker .label { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ivory-dim); }
+
+/* Wallet / remaining budget bar */
+.wallet-bar {
+  height: 14px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  margin: 8px 0 4px;
+}
+.wallet-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--money), var(--money-bright));
+  transition: width 0.4s ease;
+}
+
+/* Stamp effect for "SATILDI!" */
+.stamp {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(-14deg) scale(0.4);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 46px;
+  color: var(--rose);
+  border: 6px solid var(--rose);
+  padding: 6px 22px;
+  border-radius: 10px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+  animation: stampIn 0.5s cubic-bezier(.2,1.4,.4,1) forwards;
+}
+@keyframes stampIn {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-14deg) scale(2.2); }
+  60% { opacity: 1; transform: translate(-50%, -50%) rotate(-14deg) scale(0.92); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-14deg) scale(1); }
+}
+
+.lot-card { position: relative; }
+.lot-index { font-family: var(--font-mono); color: var(--gold); font-size: 13px; letter-spacing: 0.1em; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: 14px; }
+th { color: var(--gold); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ivory-dim);
+}
+.badge.you { border-color: var(--gold); color: var(--gold-bright); }
+.badge.leader { border-color: var(--money-bright); color: var(--money-bright); }
+
+.code-display {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  letter-spacing: 0.2em;
+  color: var(--gold-bright);
+  font-weight: 700;
+}
+
+.error-box {
+  background: rgba(196,87,79,0.14);
+  border: 1px solid var(--danger);
+  color: #f2c3bf;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.footer-note { text-align: center; margin-top: 30px; }
+
+/* ---- Profile analysis bars (results screen) ---- */
+.profile-bars { margin-top: 12px; }
+.profile-row { margin-bottom: 10px; }
+.profile-row-label { font-size: 13px; margin-bottom: 4px; }
+.profile-bar-track { height: 10px; border-radius: 6px; background: rgba(0,0,0,0.32); border: 1px solid var(--line); overflow: hidden; }
+.profile-bar-fill { height: 100%; border-radius: 6px; }
+.profile-tag { font-family: var(--font-mono); font-size: 13px; color: var(--gold-bright); margin-top: 12px; margin-bottom: 0; }
+
+/* ---- Countdown timer ---- */
+.timer { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--ivory); }
+.timer.urgent { color: var(--danger); animation: pulseTimer 0.6s infinite alternate; }
+@keyframes pulseTimer { from { opacity: 1; } to { opacity: 0.45; } }
+
+/* ---- Category badge on lot cards ---- */
+.category-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ivory-dim);
+  margin-bottom: 10px;
+}
+
+@media (max-width: 520px) {
+  .wrap { padding: 18px 14px 60px; }
+  .card { padding: 18px; border-radius: 14px; }
+}
