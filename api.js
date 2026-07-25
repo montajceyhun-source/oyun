@@ -3,7 +3,7 @@
 // (Apps Script > Yayımla > Yeni yayım > Veb tətbiq sonrası aldığınız link)
 // ============================================================
 const CONFIG = {
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzyy5Ms188UfNJcdgrTEkD6uohUtVdV3pUNucToHHkI4DAAbu3reDLBAfrRB5r9s4TF/exec'
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwnYgY2rZSYgwmeevG1VIrwrLqO8dzCtgJ3oGhxu7J6er5ZE1rSz0Opvm4bNBSBkF1I/exec'
 };
 
 async function apiGet(params) {
